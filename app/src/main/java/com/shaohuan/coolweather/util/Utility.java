@@ -23,6 +23,8 @@ import org.json.JSONObject;
 
 public class Utility {
 
+    public static final String ADDRESS="http://guolin.tech/api/china";
+
     public static boolean handleProvinceResponse(String response){
         if (!TextUtils.isEmpty(response)){
             try {
