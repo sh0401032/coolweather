@@ -5,10 +5,14 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -41,6 +45,10 @@ public class WeatherActivity extends AppCompatActivity {
     private TextView carWash;
     private TextView sport;
     private ImageView imageView;
+    public SwipeRefreshLayout swipeRefresh;
+    private String weatherId;
+    public DrawerLayout drawerLayout;
+    private Button btNav;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,7 +64,14 @@ public class WeatherActivity extends AppCompatActivity {
         //初始化控件
         initUI();
 
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        btNav.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                drawerLayout.openDrawer(GravityCompat.START);
+            }
+        });
+
+        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String bing_pic = prefs.getString("bing_pic", null);
         if (bing_pic != null) {
             Glide.with(this).load(bing_pic).into(imageView);
@@ -68,14 +83,25 @@ public class WeatherActivity extends AppCompatActivity {
         if (weatherString != null) {
             //从缓存中直接解析天气数据
             Weather weather = Utility.handleWeatherResponse(weatherString);
+            weatherId = weather.basic.weatherId;
             showWeatherInfo(weather);
         } else {
             //无缓存从服务器获取天气信息
-            String weatherId = getIntent().getStringExtra("weather_id");
+            weatherId = getIntent().getStringExtra("weather_id");
             weatherLayout.setVisibility(View.INVISIBLE);
             //Log.e("weather",weatherId);//CN101220202
             requestWeather(weatherId);
         }
+        //下拉刷新，更新天气信息
+        swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                String weatherString = prefs.getString("weather", null);
+                Weather weather = Utility.handleWeatherResponse(weatherString);
+                weatherId=weather.basic.weatherId;
+                requestWeather(weatherId);
+            }
+        });
 
 
     }
@@ -105,7 +131,7 @@ public class WeatherActivity extends AppCompatActivity {
         });
     }
 
-    private void requestWeather(String weatherId) {
+    public void requestWeather(final String weatherId) {
         String weatherUrl = "http://guolin.tech/api/weather?cityid="
                 + weatherId + "&key=bc0418b57b2d4918819d3974ac1285d9";
 
@@ -118,6 +144,8 @@ public class WeatherActivity extends AppCompatActivity {
                     public void run() {
                         Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
 
+                        //隐藏下拉刷新图标
+                        swipeRefresh.setRefreshing(false);
                     }
                 });
             }
@@ -136,9 +164,12 @@ public class WeatherActivity extends AppCompatActivity {
                             editor.putString("weather", responseText);
                             editor.apply();
                             showWeatherInfo(weather);
+
                         } else {
                             Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
                         }
+                        //隐藏下拉刷新图标
+                        swipeRefresh.setRefreshing(false);
                     }
                 });
             }
@@ -160,6 +191,9 @@ public class WeatherActivity extends AppCompatActivity {
         carWash = (TextView) findViewById(R.id.tv_wash_car);
         sport = (TextView) findViewById(R.id.tv_sport);
         imageView = (ImageView) findViewById(R.id.iv_background);
+        swipeRefresh = (SwipeRefreshLayout) findViewById(R.id.swipe_refresh);
+        drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        btNav = (Button) findViewById(R.id.bt_nav);
     }
 
     private void showWeatherInfo(Weather weather) {
